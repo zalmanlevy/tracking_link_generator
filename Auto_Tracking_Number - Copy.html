@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Tracking Link Generator</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path fill='%23333333' d='M35,2C18.4,2,5,15.4,5,32c0,19.4,30,58,30,58s30-38.6,30-58C65,15.4,51.6,2,35,2z M35,44c-6.6,0-12-5.4-12-12s5.4-12,12-12s12,5.4,12,12S41.6,44,35,44z'/><path fill='%23333333' d='M85,22c-8.3,0-15,6.7-15,15c0,5.4,2.9,10.1,7.1,12.8V60h5v-9.1c5.1-2.2,8.9-7.2,8.9-13.1C100,28.7,93.3,22,85,22z M85,70a5,5 0 100,10a5,5 0 000-10z'/></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Use Inter font family */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Base transition for link buttons */
+        .link-button {
+            transition: all 0.2s ease-in-out;
+        }
+        /* Hover effect for buttons */
+        .link-button:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-md mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8">
+        
+        <div class="text-center mb-8">
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-800">Tracking Link Generator</h1>
+            <p class="text-slate-500 mt-2">Paste one or more tracking codes below.</p>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label for="trackingInput" class="block text-sm font-medium text-slate-600 mb-1">Tracking Codes</label>
+                <textarea 
+                    id="trackingInput" 
+                    rows="4"
+                    class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                    placeholder="Paste tracking numbers separated by spaces, tabs, or new lines..."></textarea>
+            </div>
+            <div class="grid grid-cols-5 gap-3">
+                <button 
+                    id="pasteButton" 
+                    class="col-span-2 bg-slate-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition"
+                >
+                    Paste & Clear
+                </button>
+                <button 
+                    id="trackButton" 
+                    class="col-span-3 bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition"
+                >
+                    Generate Links
+                </button>
+            </div>
+        </div>
+
+        <div id="results" class="mt-8 border-t border-slate-200 pt-6 hidden">
+            <h2 class="text-lg font-semibold text-slate-700 text-center mb-4">Your Links</h2>
+            <div id="links-container" class="space-y-3">
+                </div>
+            <div id="open-all-container" class="mt-4 hidden">
+                <button id="openAllButton" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition">
+                    Open All Links
+                </button>
+            </div>
+        </div>
+        
+        <div id="error-message" class="mt-4 text-center text-red-600 font-medium hidden"></div>
+
+    </div>
+
+    <script>
+        // --- DOM Element Selection ---
+        const trackingInput = document.getElementById('trackingInput');
+        const trackButton = document.getElementById('trackButton');
+        const pasteButton = document.getElementById('pasteButton');
+        const resultsDiv = document.getElementById('results');
+        const linksContainer = document.getElementById('links-container');
+        const errorMessageEl = document.getElementById('error-message');
+        const openAllContainer = document.getElementById('open-all-container');
+        const openAllButton = document.getElementById('openAllButton');
+
+        // --- Event Listener for the Buttons ---
+        trackButton.addEventListener('click', generateTrackingLinks);
+        pasteButton.addEventListener('click', pasteAndGenerate);
+        openAllButton.addEventListener('click', openAllGeneratedLinks);
+        
+        /**
+         * Clears the textarea, pastes from clipboard, and then generates links.
+         */
+        async function pasteAndGenerate() {
+            errorMessageEl.classList.add('hidden');
+            try {
+                trackingInput.value = '';
+                const text = await navigator.clipboard.readText();
+                trackingInput.value = text;
+                generateTrackingLinks();
+            } catch (err) {
+                console.error('Failed to read clipboard contents: ', err);
+                errorMessageEl.textContent = 'Could not paste. Please check clipboard permissions.';
+                errorMessageEl.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Processes multiple tracking codes from the textarea and generates links.
+         */
+        function generateTrackingLinks() {
+            const rawInput = trackingInput.value;
+
+            // Hide previous results and errors
+            resultsDiv.classList.add('hidden');
+            openAllContainer.classList.add('hidden');
+            errorMessageEl.classList.add('hidden');
+            linksContainer.innerHTML = ''; // Clear previous links
+
+            // 1. Initial split by whitespace
+            let rawCodes = rawInput.split(/[\s\t\n]+/).filter(code => code.trim() !== '');
+
+            // 2. Pre-processing: Handle Hyphenated Combinations
+            // If a code contains '-', split it, keep the first part, and add 'MF' to the second part
+            const processedCodes = [];
+            rawCodes.forEach(code => {
+                if (code.includes('-')) {
+                    const parts = code.split('-');
+                    // First part
+                    if (parts[0]) processedCodes.push(parts[0].trim());
+                    // Second part (and any subsequent parts) - Prepend 'MF'
+                    for (let i = 1; i < parts.length; i++) {
+                        if (parts[i]) processedCodes.push('MF' + parts[i].trim());
+                    }
+                } else {
+                    processedCodes.push(code);
+                }
+            });
+
+            // 3. Update the Textarea to show the cleaned/split codes
+            if (processedCodes.length > 0) {
+                trackingInput.value = processedCodes.join('\n');
+            }
+
+            const codes = processedCodes;
+
+            if (codes.length === 0) {
+                errorMessageEl.textContent = 'Please enter at least one tracking code.';
+                errorMessageEl.classList.remove('hidden');
+                return;
+            }
+            
+            codes.forEach(rawCode => {
+                const processedCode = rawCode.trim();
+                let finalCode = processedCode; // The code to display and use in the URL
+                let carrierUrl = '';
+                let buttonClass = '';
+                let carrierName = '';
+
+                // --- Carrier Detection ---
+                const isUsps = 
+                    processedCode.startsWith('94') ||
+                    processedCode.startsWith('92') ||
+                    (processedCode.length === 22 && 
+                        (processedCode.startsWith('1000') || 
+                         processedCode.startsWith('00') || 
+                         processedCode.startsWith('50000')));
+
+                if (isUsps) {
+                    // USPS logic: Use the full code
+                    carrierUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(processedCode)}`;
+                    buttonClass = 'bg-sky-600 text-white hover:bg-sky-700'; // A distinct blue for USPS
+                    carrierName = 'USPS';
+                    finalCode = processedCode;
+                } else {
+                    // Logic for other carriers (FedEx, UPS, DHL)
+                    // Only strip 'MF' for non-USPS numbers
+                    if (processedCode.toUpperCase().startsWith('MF')) {
+                        finalCode = processedCode.substring(2);
+                    }
+
+                    if (finalCode.startsWith('88')) {
+                        carrierUrl = `https://www.fedex.com/apps/fedextrack/?tracknumbers=${encodeURIComponent(finalCode)}`;
+                        buttonClass = 'bg-purple-600 text-white hover:bg-purple-700';
+                        carrierName = 'FedEx';
+                    } else if (finalCode.toUpperCase().startsWith('1Z')) {
+                        carrierUrl = `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(finalCode)}`;
+                        buttonClass = 'bg-yellow-500 text-slate-900 hover:bg-yellow-600';
+                        carrierName = 'UPS';
+                    } else {
+                        // Default to DHL if no other pattern matches
+                        carrierUrl = `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(finalCode)}`;
+                        buttonClass = 'bg-red-600 text-white hover:bg-red-700';
+                        carrierName = 'DHL';
+                    }
+                }
+
+                // --- Create and Append Link Element ---
+                const linkElement = document.createElement('a');
+                linkElement.href = carrierUrl;
+                linkElement.target = '_blank';
+                linkElement.className = `link-button flex items-center justify-between w-full font-bold py-3 px-4 rounded-lg shadow-sm ${buttonClass}`;
+                linkElement.innerHTML = `
+                    <span>${finalCode}</span>
+                    <span class="text-xs font-light opacity-80">${carrierName}</span>
+                `;
+                
+                linksContainer.appendChild(linkElement);
+            });
+
+            if (codes.length > 0) {
+                resultsDiv.classList.remove('hidden');
+                openAllContainer.classList.remove('hidden'); // Show the "Open All" button
+            }
+        }
+
+        /**
+         * Opens all the generated links in new tabs.
+         */
+        function openAllGeneratedLinks() {
+            // Find all the generated anchor tags within the container
+            const generatedLinks = linksContainer.querySelectorAll('a.link-button');
+            
+            if (generatedLinks.length > 0) {
+                generatedLinks.forEach(link => {
+                    // Browsers may block multiple pop-ups. This works best when the action
+                    // is a direct result of a user click, which it is here.
+                    window.open(link.href, '_blank');
+                });
+            }
+        }
+    </script>
+</body>
+</html>
