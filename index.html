@@ -6,6 +6,7 @@
     <title>Universal Tracking Link Generator</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path fill='%23333333' d='M35,2C18.4,2,5,15.4,5,32c0,19.4,30,58,30,58s30-38.6,30-58C65,15.4,51.6,2,35,2z M35,44c-6.6,0-12-5.4-12-12s5.4-12,12-12s12,5.4,12,12S41.6,44,35,44z'/><path fill='%23333333' d='M85,22c-8.3,0-15,6.7-15,15c0,5.4,2.9,10.1,7.1,12.8V60h5v-9.1c5.1-2.2,8.9-7.2,8.9-13.1C100,28.7,93.3,22,85,22z M85,70a5,5 0 100,10a5,5 0 000-10z'/></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -14,14 +15,71 @@
         body {
             font-family: 'Inter', sans-serif;
         }
-        /* Base transition for link buttons */
-        .link-button {
+        /* Base transition for link rows */
+        .link-row {
             transition: all 0.2s ease-in-out;
         }
-        /* Hover effect for buttons */
-        .link-button:hover {
+        .link-row:hover {
             transform: translateY(-2px);
-            filter: brightness(1.1);
+            filter: brightness(1.05);
+        }
+        /* Carrier badge */
+        .carrier-badge {
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: rgba(0,0,0,0.12);
+            white-space: nowrap;
+        }
+        /* Action icon buttons */
+        .action-icon {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            color: rgba(0,0,0,0.45);
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+        .action-icon:hover {
+            background: rgba(0,0,0,0.1);
+            color: rgba(0,0,0,0.85);
+        }
+        /* Tooltip */
+        .action-icon::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 500;
+            padding: 4px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        .action-icon:hover::after {
+            opacity: 1;
+        }
+        /* Success checkmark state */
+        .action-icon.copied {
+            color: #16a34a;
+        }
+        .action-icon.copied:hover {
+            color: #16a34a;
         }
     </style>
 </head>
@@ -197,22 +255,25 @@
                     }
                 }
 
-                // --- Create and Append Link Element ---
-                const linkElement = document.createElement('a');
-                linkElement.href = carrierUrl;
-                linkElement.target = '_blank';
-                linkElement.className = `link-button flex items-center justify-between w-full font-bold py-3 px-4 rounded-lg shadow-sm ${buttonClass}`;
-                linkElement.innerHTML = `
-                    <span>${finalCode}</span>
-                    <span class="text-xs font-light opacity-80">${carrierName}</span>
+                // --- Create and Append Link Row ---
+                const row = document.createElement('div');
+                row.className = `link-row flex items-center w-full font-bold py-3 px-4 rounded-lg shadow-sm ${buttonClass}`;
+
+                row.innerHTML = `
+                    <a href="${carrierUrl}" target="_blank" class="flex-1 truncate hover:underline" style="color:inherit;text-decoration:none;">${finalCode}</a>
+                    <span class="carrier-badge ml-2">${carrierName}</span>
+                    <button class="action-icon ml-2" data-tooltip="Copy Tracking Link" onclick="copyToClipboard(event, this, '${carrierUrl.replace(/'/g, "\\'")}')"><i data-lucide="link" style="width:20px;height:20px;"></i></button>
+                    <button class="action-icon ml-1" data-tooltip="Copy Tracking Number" onclick="copyToClipboard(event, this, '${finalCode}')"><i data-lucide="clipboard-copy" style="width:20px;height:20px;"></i></button>
                 `;
-                
-                linksContainer.appendChild(linkElement);
+
+                linksContainer.appendChild(row);
             });
 
             if (codes.length > 0) {
                 resultsDiv.classList.remove('hidden');
-                openAllContainer.classList.remove('hidden'); // Show the "Open All" button
+                openAllContainer.classList.remove('hidden');
+                // Initialize Lucide icons for newly created elements
+                lucide.createIcons();
             }
         }
 
@@ -220,15 +281,35 @@
          * Opens all the generated links in new tabs.
          */
         function openAllGeneratedLinks() {
-            // Find all the generated anchor tags within the container
-            const generatedLinks = linksContainer.querySelectorAll('a.link-button');
-            
+            const generatedLinks = linksContainer.querySelectorAll('a[href]');
             if (generatedLinks.length > 0) {
                 generatedLinks.forEach(link => {
-                    // Browsers may block multiple pop-ups. This works best when the action
-                    // is a direct result of a user click, which it is here.
                     window.open(link.href, '_blank');
                 });
+            }
+        }
+
+        /**
+         * Copies text to clipboard and shows a green checkmark on the icon button.
+         */
+        async function copyToClipboard(event, btn, text) {
+            event.stopPropagation();
+            try {
+                await navigator.clipboard.writeText(text);
+                // Save original icon SVG
+                const originalHTML = btn.innerHTML;
+                // Replace with green checkmark
+                btn.innerHTML = '<i data-lucide="check" style="width:20px;height:20px;"></i>';
+                btn.classList.add('copied');
+                lucide.createIcons({ nodes: [btn] });
+                // Revert after 2 seconds
+                setTimeout(() => {
+                    btn.innerHTML = originalHTML;
+                    btn.classList.remove('copied');
+                    lucide.createIcons({ nodes: [btn] });
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy: ', err);
             }
         }
     </script>
