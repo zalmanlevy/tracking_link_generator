@@ -18,10 +18,18 @@
         /* Base transition for link rows */
         .link-row {
             transition: all 0.2s ease-in-out;
+            position: relative;
         }
         .link-row:hover {
             transform: translateY(-2px);
             filter: brightness(1.05);
+            z-index: 50;
+        }
+        .row-checkbox {
+            display: none;
+        }
+        .select-mode .row-checkbox {
+            display: inline-block;
         }
         /* Carrier badge */
         .carrier-badge {
@@ -119,7 +127,47 @@
         </div>
 
         <div id="results" class="mt-8 border-t border-slate-200 pt-6 hidden">
-            <h2 class="text-lg font-semibold text-slate-700 text-center mb-4">Your Links</h2>
+            <h2 class="text-lg font-semibold text-slate-700 text-center mb-3">Your Links</h2>
+            
+            <!-- Unified Batch Actions Bar -->
+            <div class="flex justify-center w-full mb-3 px-1">
+                <div id="batch-actions-bar" class="flex items-center bg-slate-100 rounded-lg py-1.5 px-1 text-slate-500 border border-slate-200 shadow-sm relative z-50 transition-all duration-300 ease-in-out">
+                    <div id="batch-provider-container" class="flex items-center gap-2 border-slate-300 max-w-0 opacity-0 overflow-hidden transition-all duration-300 ease-in-out border-r-0 pr-0 mr-0" style="overflow: hidden;">
+                        <span class="text-[0.65rem] font-bold uppercase tracking-wide text-blue-800 whitespace-nowrap ml-2"><span id="selectedCount">0</span> selected</span>
+                        <div class="relative group z-[100]">
+                            <button class="bg-white hover:bg-blue-50 text-blue-600 border border-blue-200 font-medium py-0.5 px-2 rounded text-[0.7rem] transition flex items-center gap-1 shadow-sm whitespace-nowrap">Change <i data-lucide="chevron-down" style="width:12px;height:12px;"></i></button>
+                            <div class="absolute left-0 top-full mt-1 hidden group-hover:block w-32 bg-white rounded-md shadow-lg border border-slate-200 py-1 font-normal text-slate-800">
+                                <button onclick="changeProviderBulk('USPS')" class="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-100">USPS</button>
+                                <button onclick="changeProviderBulk('FedEx')" class="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-100">FedEx</button>
+                                <button onclick="changeProviderBulk('UPS')" class="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-100">UPS</button>
+                                <button onclick="changeProviderBulk('DHL')" class="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-100">DHL</button>
+                            </div>
+                        </div>
+                    </div>
+                    <span id="batch-title" class="font-semibold text-xs text-slate-600 uppercase tracking-wide whitespace-nowrap ml-2 mr-1 max-w-[120px] opacity-100 transition-all duration-300 overflow-hidden">Batch Actions:</span>
+                    
+                    <div class="flex flex-col items-center group cursor-pointer px-2 border-l border-slate-200" id="copyAllEmbeddedBtn" title="Copy Embedded">
+                        <span class="text-[0.5rem] font-bold uppercase tracking-wider mb-0.5 opacity-60 group-hover:opacity-100 transition">Embed</span>
+                        <button class="text-slate-400 group-hover:text-slate-800 pointer-events-none transition"><i data-lucide="external-link" style="width:16px;height:16px;"></i></button>
+                    </div>
+                    
+                    <div class="flex flex-col items-center group cursor-pointer px-2 border-l border-slate-200" id="copyAllLinksBtn" title="Copy Links">
+                        <span class="text-[0.5rem] font-bold uppercase tracking-wider mb-0.5 opacity-60 group-hover:opacity-100 transition">Links</span>
+                        <button class="text-slate-400 group-hover:text-slate-800 pointer-events-none transition"><i data-lucide="link" style="width:16px;height:16px;"></i></button>
+                    </div>
+
+                    <div class="flex flex-col items-center group cursor-pointer px-2 border-l border-slate-200" id="copyAllNumbersBtn" title="Copy Numbers">
+                        <span class="text-[0.5rem] font-bold uppercase tracking-wider mb-0.5 opacity-60 group-hover:opacity-100 transition">Nums</span>
+                        <button class="text-slate-400 group-hover:text-slate-800 pointer-events-none transition"><i data-lucide="clipboard-copy" style="width:16px;height:16px;"></i></button>
+                    </div>
+
+                    <div class="flex flex-col items-center group cursor-pointer pl-2 border-l border-slate-200" id="selectMultipleBtn" title="Check Multiple">
+                        <span class="text-[0.5rem] font-bold uppercase tracking-wider mb-0.5 opacity-90 group-hover:opacity-100 transition text-blue-600" id="selectMultipleLabel">Select</span>
+                        <button class="text-blue-500 group-hover:text-blue-700 pointer-events-none transition"><i data-lucide="check-square" style="width:16px;height:16px;" id="selectMultipleIcon"></i></button>
+                    </div>
+                </div>
+            </div>
+
             <div id="links-container" class="space-y-3">
                 </div>
             <div id="open-all-container" class="mt-4 hidden">
@@ -260,25 +308,46 @@
                 const row = document.createElement('div');
                 row.className = `link-row flex items-center w-full font-bold py-3 px-4 rounded-lg shadow-sm ${buttonClass}`;
 
-                let switchHtml = '';
+                // Carrier options
+                const allCarriers = ['USPS', 'FedEx', 'UPS', 'DHL'];
+                let dropdownContent = '';
+                
                 if (carrierName === 'FedEx' || carrierName === 'DHL') {
-                    const otherCarrier = carrierName === 'FedEx' ? 'DHL' : 'FedEx';
-                    switchHtml = `
-                        <div class="relative group ml-1 flex items-center">
-                            <button class="action-icon group-hover:bg-black/10 group-hover:text-black/85" data-tooltip="Switch Carrier"><i data-lucide="more-vertical" style="width:20px;height:20px;"></i></button>
-                            <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-50 w-36 bg-white rounded-md shadow-lg border border-slate-200 py-1 font-normal text-slate-800 tracking-normal transform sm:-translate-x-0 -translate-x-1/2">
-                                <button onclick="switchCarrier(event, this, '${finalCode}', '${otherCarrier}')" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">
-                                    Switch to ${otherCarrier}
-                                </button>
-                            </div>
-                        </div>
+                    const quickCarrier = carrierName === 'FedEx' ? 'DHL' : 'FedEx';
+                    dropdownContent += `
+                        <button onclick="switchCarrier(event, this, '${finalCode}', '${quickCarrier}')" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 font-medium text-blue-600 transition-colors border-b border-slate-100">
+                            Quick Switch to ${quickCarrier}
+                        </button>
                     `;
                 }
 
+                dropdownContent += `<div class="px-4 py-2 text-xs text-slate-400 font-semibold uppercase tracking-wider">Other Providers</div>`;
+                
+                allCarriers.forEach(c => {
+                    if (c !== carrierName && !( (carrierName === 'FedEx' && c === 'DHL') || (carrierName === 'DHL' && c === 'FedEx') )) {
+                        dropdownContent += `
+                            <button onclick="switchCarrier(event, this, '${finalCode}', '${c}')" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">
+                                Switch to ${c}
+                            </button>
+                        `;
+                    }
+                });
+
+                const switchHtml = `
+                    <div class="relative group ml-1 flex items-center">
+                        <button class="action-icon !hover:bg-black/10 !hover:text-black/85"><i data-lucide="more-vertical" style="width:20px;height:20px;"></i></button>
+                        <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-[100] w-48 bg-white rounded-md shadow-lg border border-slate-200 py-1 font-normal text-slate-800 tracking-normal transform sm:-translate-x-0 -translate-x-1/2">
+                            ${dropdownContent}
+                        </div>
+                    </div>
+                `;
+
                 row.innerHTML = `
+                    <input type="checkbox" class="row-checkbox mr-3 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer" data-code="${finalCode}" onchange="updateSelectedCount()">
                     <a href="${carrierUrl}" target="_blank" class="flex-1 truncate hover:underline" style="color:inherit;text-decoration:none;">${finalCode}</a>
                     <span class="carrier-badge ml-2">${carrierName}</span>
-                    <button class="action-icon ml-2" data-tooltip="Copy Tracking Link" onclick="copyToClipboard(event, this, '${carrierUrl.replace(/'/g, "\\'")}')"><i data-lucide="link" style="width:20px;height:20px;"></i></button>
+                    <button class="action-icon ml-2" data-tooltip="Copy Embedded Link" onclick="copyRichText(event, this, '<a href=\\'${carrierUrl.replace(/'/g, "\\'")}\\'>${finalCode}</a>', '${carrierUrl.replace(/'/g, "\\'")}')"><i data-lucide="external-link" style="width:20px;height:20px;"></i></button>
+                    <button class="action-icon ml-1" data-tooltip="Copy Tracking Link" onclick="copyToClipboard(event, this, '${carrierUrl.replace(/'/g, "\\'")}')"><i data-lucide="link" style="width:20px;height:20px;"></i></button>
                     <button class="action-icon ml-1" data-tooltip="Copy Tracking Number" onclick="copyToClipboard(event, this, '${finalCode}')"><i data-lucide="clipboard-copy" style="width:20px;height:20px;"></i></button>
                     ${switchHtml}
                 `;
@@ -331,43 +400,219 @@
         }
 
         /**
-         * Switches the carrier for a specific code between FedEx and DHL.
+         * Switches the carrier for a specific code.
          */
-        function switchCarrier(event, btn, finalCode, newCarrierName) {
-            event.stopPropagation();
-            const row = btn.closest('.link-row');
+        function switchCarrier(event, targetElement, finalCode, newCarrierName) {
+            if(event) event.stopPropagation();
+            const row = (targetElement.classList && targetElement.classList.contains('link-row')) ? targetElement : targetElement.closest('.link-row');
             
             let newCarrierUrl = '';
             let newButtonClass = '';
 
-            if (newCarrierName === 'FedEx') {
+            if (newCarrierName === 'USPS') {
+                newCarrierUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(finalCode)}`;
+                newButtonClass = 'bg-sky-600 text-white hover:bg-sky-700';
+            } else if (newCarrierName === 'FedEx') {
                 newCarrierUrl = `https://www.fedex.com/apps/fedextrack/?tracknumbers=${encodeURIComponent(finalCode)}`;
                 newButtonClass = 'bg-purple-600 text-white hover:bg-purple-700';
+            } else if (newCarrierName === 'UPS') {
+                newCarrierUrl = `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(finalCode)}`;
+                newButtonClass = 'bg-yellow-500 text-slate-900 hover:bg-yellow-600';
             } else if (newCarrierName === 'DHL') {
                 newCarrierUrl = `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(finalCode)}`;
                 newButtonClass = 'bg-red-600 text-white hover:bg-red-700';
             }
 
-            const otherCarrier = newCarrierName === 'FedEx' ? 'DHL' : 'FedEx';
+            const allCarriers = ['USPS', 'FedEx', 'UPS', 'DHL'];
+            let dropdownContent = '';
+            
+            if (newCarrierName === 'FedEx' || newCarrierName === 'DHL') {
+                const quickCarrier = newCarrierName === 'FedEx' ? 'DHL' : 'FedEx';
+                dropdownContent += `
+                    <button onclick="switchCarrier(event, this, '${finalCode}', '${quickCarrier}')" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 font-medium text-blue-600 transition-colors border-b border-slate-100">
+                        Quick Switch to ${quickCarrier}
+                    </button>
+                `;
+            }
+
+            dropdownContent += `<div class="px-4 py-2 text-xs text-slate-400 font-semibold uppercase tracking-wider">Other Providers</div>`;
+            
+            allCarriers.forEach(c => {
+                if (c !== newCarrierName && !( (newCarrierName === 'FedEx' && c === 'DHL') || (newCarrierName === 'DHL' && c === 'FedEx') )) {
+                    dropdownContent += `
+                        <button onclick="switchCarrier(event, this, '${finalCode}', '${c}')" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">
+                            Switch to ${c}
+                        </button>
+                    `;
+                }
+            });
+
+            const checkbox = row.querySelector('.row-checkbox');
+            const isChecked = checkbox ? checkbox.checked : false;
 
             row.className = `link-row flex items-center w-full font-bold py-3 px-4 rounded-lg shadow-sm ${newButtonClass}`;
             
             row.innerHTML = `
+                <input type="checkbox" class="row-checkbox mr-3 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer" data-code="${finalCode}" ${isChecked ? 'checked' : ''} onchange="updateSelectedCount()">
                 <a href="${newCarrierUrl}" target="_blank" class="flex-1 truncate hover:underline" style="color:inherit;text-decoration:none;">${finalCode}</a>
                 <span class="carrier-badge ml-2">${newCarrierName}</span>
-                <button class="action-icon ml-2" data-tooltip="Copy Tracking Link" onclick="copyToClipboard(event, this, '${newCarrierUrl.replace(/'/g, "\\'")}')"><i data-lucide="link" style="width:20px;height:20px;"></i></button>
+                <button class="action-icon ml-2" data-tooltip="Copy Embedded Link" onclick="copyRichText(event, this, '<a href=\\'${newCarrierUrl.replace(/'/g, "\\'")}\\'>${finalCode}</a>', '${newCarrierUrl.replace(/'/g, "\\'")}')"><i data-lucide="external-link" style="width:20px;height:20px;"></i></button>
+                <button class="action-icon ml-1" data-tooltip="Copy Tracking Link" onclick="copyToClipboard(event, this, '${newCarrierUrl.replace(/'/g, "\\'")}')"><i data-lucide="link" style="width:20px;height:20px;"></i></button>
                 <button class="action-icon ml-1" data-tooltip="Copy Tracking Number" onclick="copyToClipboard(event, this, '${finalCode}')"><i data-lucide="clipboard-copy" style="width:20px;height:20px;"></i></button>
                 <div class="relative group ml-1 flex items-center">
-                    <button class="action-icon group-hover:bg-black/10 group-hover:text-black/85" data-tooltip="Switch Carrier"><i data-lucide="more-vertical" style="width:20px;height:20px;"></i></button>
-                    <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-50 w-36 bg-white rounded-md shadow-lg border border-slate-200 py-1 font-normal text-slate-800 tracking-normal transform sm:-translate-x-0 -translate-x-1/2">
-                        <button onclick="switchCarrier(event, this, '${finalCode}', '${otherCarrier}')" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">
-                            Switch to ${otherCarrier}
-                        </button>
+                    <button class="action-icon !hover:bg-black/10 !hover:text-black/85"><i data-lucide="more-vertical" style="width:20px;height:20px;"></i></button>
+                    <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-[100] w-48 bg-white rounded-md shadow-lg border border-slate-200 py-1 font-normal text-slate-800 tracking-normal transform sm:-translate-x-0 -translate-x-1/2">
+                        ${dropdownContent}
                     </div>
                 </div>
             `;
 
             lucide.createIcons({ root: row });
+        }
+
+        // --- New Handlers for Bulk and Rich Copying ---
+        let isSelectMode = false;
+        const selectMultipleBtnHeader = document.getElementById('selectMultipleBtn');
+        const batchProviderContainer = document.getElementById('batch-provider-container');
+        const batchTitle = document.getElementById('batch-title');
+        const selectedCountElHead = document.getElementById('selectedCount');
+
+        if(selectMultipleBtnHeader) {
+            selectMultipleBtnHeader.addEventListener('click', () => {
+                isSelectMode = !isSelectMode;
+                if (isSelectMode) {
+                    linksContainer.classList.add('select-mode');
+                    batchTitle.classList.remove('max-w-[120px]', 'opacity-100', 'ml-2', 'mr-1');
+                    batchTitle.classList.add('max-w-0', 'opacity-0', 'm-0');
+                    
+                    batchProviderContainer.classList.remove('max-w-0', 'opacity-0', 'border-r-0', 'pr-0', 'mr-0');
+                    batchProviderContainer.classList.add('max-w-[250px]', 'opacity-100', 'border-r', 'pr-3', 'mr-1');
+                    
+                    batchProviderContainer.style.overflow = 'hidden';
+                    setTimeout(() => batchProviderContainer.style.overflow = 'visible', 300);
+                    
+                    document.getElementById('selectMultipleLabel').textContent = 'Cancel';
+                    updateSelectedCount();
+                } else {
+                    linksContainer.classList.remove('select-mode');
+                    batchProviderContainer.style.overflow = 'hidden';
+                    
+                    batchTitle.classList.remove('max-w-0', 'opacity-0', 'm-0');
+                    batchTitle.classList.add('max-w-[120px]', 'opacity-100', 'ml-2', 'mr-1');
+                    
+                    batchProviderContainer.classList.remove('max-w-[250px]', 'opacity-100', 'border-r', 'pr-3', 'mr-1');
+                    batchProviderContainer.classList.add('max-w-0', 'opacity-0', 'border-r-0', 'pr-0', 'mr-0');
+                    
+                    document.getElementById('selectMultipleLabel').textContent = 'Select';
+                    document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+                }
+            });
+        }
+
+        function updateSelectedCount() {
+            const count = document.querySelectorAll('.row-checkbox:checked').length;
+            if(selectedCountElHead) selectedCountElHead.textContent = count;
+        }
+
+        function getLinkData(context) {
+            let rows = document.querySelectorAll('.link-row');
+            if (context === 'selected') {
+                rows = Array.from(rows).filter(row => row.querySelector('.row-checkbox') && row.querySelector('.row-checkbox').checked);
+            }
+            return Array.from(rows).map(row => {
+                const a = row.querySelector('a');
+                return { code: a.textContent.trim(), url: a.href };
+            });
+        }
+
+        async function handleGlobalCopy(type, context, btnElement) {
+            const data = getLinkData(context);
+            if (data.length === 0) return;
+            
+            const spanEl = btnElement.querySelector('span');
+            let originalText = spanEl ? spanEl.textContent : '';
+
+            try {
+                if (type === 'numbers') {
+                    await navigator.clipboard.writeText(data.map(d => d.code).join('\\n'));
+                } else if (type === 'links') {
+                    await navigator.clipboard.writeText(data.map(d => d.url).join('\\n'));
+                } else if (type === 'embedded') {
+                    const htmlStr = data.map(d => `<a href="${d.url}">${d.code}</a>`).join('<br>');
+                    const plainFallback = data.map(d => d.url).join('\\n');
+                    try {
+                        const blobHtml = new Blob([htmlStr], { type: 'text/html' });
+                        const blobText = new Blob([plainFallback], { type: 'text/plain' });
+                        const clipboardItem = new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText });
+                        await navigator.clipboard.write([clipboardItem]);
+                    } catch(e) {
+                         // Fallback for browsers rejecting ClipboardItem without user interaction
+                         await navigator.clipboard.writeText(plainFallback);
+                    }
+                }
+                
+                if (spanEl) {
+                    spanEl.textContent = 'DONE!';
+                    setTimeout(() => { spanEl.textContent = originalText; }, 2000);
+                }
+                
+                // Animate checkmark
+                const iconBtn = btnElement.querySelector('button');
+                if(iconBtn) {
+                    const originalIconHTML = iconBtn.innerHTML;
+                    iconBtn.innerHTML = '<i data-lucide="check" style="width:16px;height:16px;"></i>';
+                    iconBtn.classList.add('text-green-500');
+                    lucide.createIcons({ nodes: [iconBtn] });
+                    setTimeout(() => {
+                        iconBtn.innerHTML = originalIconHTML;
+                        iconBtn.classList.remove('text-green-500');
+                        lucide.createIcons({ nodes: [iconBtn] });
+                    }, 2000);
+                }
+            } catch (err) {
+                console.error('Failed copying bulk logic', err);
+            }
+        }
+
+        document.getElementById('copyAllNumbersBtn')?.addEventListener('click', (e) => handleGlobalCopy('numbers', isSelectMode ? 'selected' : 'all', e.currentTarget));
+        document.getElementById('copyAllLinksBtn')?.addEventListener('click', (e) => handleGlobalCopy('links', isSelectMode ? 'selected' : 'all', e.currentTarget));
+        document.getElementById('copyAllEmbeddedBtn')?.addEventListener('click', (e) => handleGlobalCopy('embedded', isSelectMode ? 'selected' : 'all', e.currentTarget));
+
+        function changeProviderBulk(newCarrierName) {
+            const rows = document.querySelectorAll('.link-row');
+            rows.forEach(row => {
+                const cb = row.querySelector('.row-checkbox');
+                if (cb && cb.checked) {
+                    const code = cb.getAttribute('data-code');
+                    switchCarrier(null, row, code, newCarrierName);
+                }
+            });
+            updateSelectedCount();
+        }
+
+        async function copyRichText(event, btn, htmlStr, plainFallback) {
+            if(event) event.stopPropagation();
+            try {
+                const blobHtml = new Blob([htmlStr], { type: 'text/html' });
+                const blobText = new Blob([plainFallback], { type: 'text/plain' });
+                const clipboardItem = new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText });
+                await navigator.clipboard.write([clipboardItem]);
+                
+                if (btn) {
+                    const originalHTML = btn.innerHTML;
+                    btn.innerHTML = '<i data-lucide="check" style="width:20px;height:20px;"></i>';
+                    btn.classList.add('copied');
+                    lucide.createIcons({ nodes: [btn] });
+                    setTimeout(() => {
+                        btn.innerHTML = originalHTML;
+                        btn.classList.remove('copied');
+                        lucide.createIcons({ nodes: [btn] });
+                    }, 2000);
+                }
+            } catch (err) {
+                console.error('Failed to copy rich text: ', err);
+                copyToClipboard(event, btn, plainFallback);
+            }
         }
     </script>
 </body>
