@@ -70,6 +70,7 @@
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.15s;
+            z-index: 100;
         }
         .action-icon:hover::after {
             opacity: 1;
@@ -259,11 +260,27 @@
                 const row = document.createElement('div');
                 row.className = `link-row flex items-center w-full font-bold py-3 px-4 rounded-lg shadow-sm ${buttonClass}`;
 
+                let switchHtml = '';
+                if (carrierName === 'FedEx' || carrierName === 'DHL') {
+                    const otherCarrier = carrierName === 'FedEx' ? 'DHL' : 'FedEx';
+                    switchHtml = `
+                        <div class="relative group ml-1 flex items-center">
+                            <button class="action-icon group-hover:bg-black/10 group-hover:text-black/85" data-tooltip="Switch Carrier"><i data-lucide="more-vertical" style="width:20px;height:20px;"></i></button>
+                            <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-50 w-36 bg-white rounded-md shadow-lg border border-slate-200 py-1 font-normal text-slate-800 tracking-normal transform sm:-translate-x-0 -translate-x-1/2">
+                                <button onclick="switchCarrier(event, this, '${finalCode}', '${otherCarrier}')" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">
+                                    Switch to ${otherCarrier}
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 row.innerHTML = `
                     <a href="${carrierUrl}" target="_blank" class="flex-1 truncate hover:underline" style="color:inherit;text-decoration:none;">${finalCode}</a>
                     <span class="carrier-badge ml-2">${carrierName}</span>
                     <button class="action-icon ml-2" data-tooltip="Copy Tracking Link" onclick="copyToClipboard(event, this, '${carrierUrl.replace(/'/g, "\\'")}')"><i data-lucide="link" style="width:20px;height:20px;"></i></button>
                     <button class="action-icon ml-1" data-tooltip="Copy Tracking Number" onclick="copyToClipboard(event, this, '${finalCode}')"><i data-lucide="clipboard-copy" style="width:20px;height:20px;"></i></button>
+                    ${switchHtml}
                 `;
 
                 linksContainer.appendChild(row);
@@ -311,6 +328,46 @@
             } catch (err) {
                 console.error('Failed to copy: ', err);
             }
+        }
+
+        /**
+         * Switches the carrier for a specific code between FedEx and DHL.
+         */
+        function switchCarrier(event, btn, finalCode, newCarrierName) {
+            event.stopPropagation();
+            const row = btn.closest('.link-row');
+            
+            let newCarrierUrl = '';
+            let newButtonClass = '';
+
+            if (newCarrierName === 'FedEx') {
+                newCarrierUrl = `https://www.fedex.com/apps/fedextrack/?tracknumbers=${encodeURIComponent(finalCode)}`;
+                newButtonClass = 'bg-purple-600 text-white hover:bg-purple-700';
+            } else if (newCarrierName === 'DHL') {
+                newCarrierUrl = `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(finalCode)}`;
+                newButtonClass = 'bg-red-600 text-white hover:bg-red-700';
+            }
+
+            const otherCarrier = newCarrierName === 'FedEx' ? 'DHL' : 'FedEx';
+
+            row.className = `link-row flex items-center w-full font-bold py-3 px-4 rounded-lg shadow-sm ${newButtonClass}`;
+            
+            row.innerHTML = `
+                <a href="${newCarrierUrl}" target="_blank" class="flex-1 truncate hover:underline" style="color:inherit;text-decoration:none;">${finalCode}</a>
+                <span class="carrier-badge ml-2">${newCarrierName}</span>
+                <button class="action-icon ml-2" data-tooltip="Copy Tracking Link" onclick="copyToClipboard(event, this, '${newCarrierUrl.replace(/'/g, "\\'")}')"><i data-lucide="link" style="width:20px;height:20px;"></i></button>
+                <button class="action-icon ml-1" data-tooltip="Copy Tracking Number" onclick="copyToClipboard(event, this, '${finalCode}')"><i data-lucide="clipboard-copy" style="width:20px;height:20px;"></i></button>
+                <div class="relative group ml-1 flex items-center">
+                    <button class="action-icon group-hover:bg-black/10 group-hover:text-black/85" data-tooltip="Switch Carrier"><i data-lucide="more-vertical" style="width:20px;height:20px;"></i></button>
+                    <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-50 w-36 bg-white rounded-md shadow-lg border border-slate-200 py-1 font-normal text-slate-800 tracking-normal transform sm:-translate-x-0 -translate-x-1/2">
+                        <button onclick="switchCarrier(event, this, '${finalCode}', '${otherCarrier}')" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors">
+                            Switch to ${otherCarrier}
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            lucide.createIcons({ root: row });
         }
     </script>
 </body>
