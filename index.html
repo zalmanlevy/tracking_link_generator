@@ -90,6 +90,28 @@
         .action-icon.copied:hover {
             color: #16a34a;
         }
+        /* Quick-change dropdown: keep it open briefly after the mouse leaves the
+           trigger so there is time to travel down into the menu. */
+        .quick-menu {
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.15s ease, visibility 0s linear 0.45s;
+        }
+        .group:hover .quick-menu {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.15s ease, visibility 0s linear 0s;
+        }
+        /* Invisible bridge across the gap between the trigger and the menu so
+           hover isn't lost while moving the cursor. */
+        .quick-menu::before {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            height: 8px;
+        }
     </style>
 </head>
 <body class="bg-slate-100 flex items-center justify-center min-h-screen p-4">
@@ -288,7 +310,7 @@
                         finalCode = processedCode.substring(2);
                     }
 
-                    if (finalCode.startsWith('88')) {
+                    if (finalCode.startsWith('88') || finalCode.startsWith('87')) {
                         carrierUrl = `https://www.fedex.com/apps/fedextrack/?tracknumbers=${encodeURIComponent(finalCode)}`;
                         buttonClass = 'bg-purple-600 text-white hover:bg-purple-700';
                         carrierName = 'FedEx';
@@ -336,7 +358,7 @@
                 const switchHtml = `
                     <div class="relative group ml-1 flex items-center">
                         <button class="action-icon !hover:bg-black/10 !hover:text-black/85"><i data-lucide="more-vertical" style="width:20px;height:20px;"></i></button>
-                        <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-[100] w-48 bg-white rounded-md shadow-lg border border-slate-200 py-1 font-normal text-slate-800 tracking-normal transform sm:-translate-x-0 -translate-x-1/2">
+                        <div class="quick-menu absolute right-0 top-full mt-1 z-[100] w-48 bg-white rounded-md shadow-lg border border-slate-200 py-1 font-normal text-slate-800 tracking-normal transform sm:-translate-x-0 -translate-x-1/2">
                             ${dropdownContent}
                         </div>
                     </div>
@@ -461,7 +483,7 @@
                 <button class="action-icon ml-1" data-tooltip="Copy Tracking Number" onclick="copyToClipboard(event, this, '${finalCode}')"><i data-lucide="clipboard-copy" style="width:20px;height:20px;"></i></button>
                 <div class="relative group ml-1 flex items-center">
                     <button class="action-icon !hover:bg-black/10 !hover:text-black/85"><i data-lucide="more-vertical" style="width:20px;height:20px;"></i></button>
-                    <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-[100] w-48 bg-white rounded-md shadow-lg border border-slate-200 py-1 font-normal text-slate-800 tracking-normal transform sm:-translate-x-0 -translate-x-1/2">
+                    <div class="quick-menu absolute right-0 top-full mt-1 z-[100] w-48 bg-white rounded-md shadow-lg border border-slate-200 py-1 font-normal text-slate-800 tracking-normal transform sm:-translate-x-0 -translate-x-1/2">
                         ${dropdownContent}
                     </div>
                 </div>
